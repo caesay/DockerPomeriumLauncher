@@ -14,7 +14,7 @@ jobs:
         uses: actions/setup-dotnet@v2
 
       - name: Publish
-        run: dotnet publish -r linux-x64 -c Release -p:PublishProfile=DefaultContainer
+        run: dotnet publish --os linux --arch x64 -c Release -p:PublishProfile=DefaultContainer
 
       # Because we don't yet support pushing to authenticated registries, we have to use docker to
       # login, tag and push the image. In the future none of these steps will be required!

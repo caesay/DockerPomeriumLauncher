@@ -4,7 +4,12 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>11</LangVersion>
-    <ContainerImageName>caesay/docker-pomerium-launcher</ContainerImageName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ContainerRepository>caesay/docker-pomerium-launcher</ContainerRepository>
+    <ContainerImageTag>$(Version);latest</ContainerImageTag>
+    <ContainerGenerateLabels>false</ContainerGenerateLabels>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +24,6 @@
   
   <ItemGroup>
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
-    <PackageReference Include="Microsoft.NET.Build.Containers" Version="7.0.400" />
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.133">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
