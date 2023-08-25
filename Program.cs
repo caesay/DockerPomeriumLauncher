@@ -15,6 +15,7 @@ var port = Environment.GetEnvironmentVariable("DL_PORT");
 var pomConfig = Environment.GetEnvironmentVariable("DL_POMERIUM");
 var hideContainers = Environment.GetEnvironmentVariable("DL_HIDE");
 var customContainers = Environment.GetEnvironmentVariable("DL_EXTRA");
+var pageTitle = Environment.GetEnvironmentVariable("DL_TITLE");
 
 var deserializer = new DeserializerBuilder()
     .IgnoreUnmatchedProperties()
@@ -54,6 +55,7 @@ async Task StaticPage(HttpContext ctx, string jspath, object jsonData = null)
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <link rel="icon" type="image/png" sizes="32x32" href="/launchbox-32.png">
         <link rel="icon" type="image/png" sizes="16x16" href="/launchbox-16.png">
+        {{(pageTitle == null ? "" : $"<title>{pageTitle}</title>")}}
     </head>
     <body>
         <script> window.myData = {{json}}; </script>
