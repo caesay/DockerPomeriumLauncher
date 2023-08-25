@@ -13,6 +13,16 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v2
 
+      - name: Install NBGV
+        run: dotnet tool install --tool-path . nbgv
+
+      - name: Get NBGV Version
+        id: nbgv-version
+        run: |
+          c_version=$(nbgv get-version -v SimpleVersion -f text)
+          echo "package version = ${c_version}"
+          echo "C_VERSION=${c_version}" >> "$GITHUB_OUTPUT"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2.2.0
         with:
@@ -21,4 +31,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: .NET Publish
-        run: dotnet publish --os linux --arch x64 -c Release -p:PublishProfile=DefaultContainer
+        env:
+          ESCAPED_TAGS: "'\"${{ steps.nbgv-version.outputs.C_VERSION }};latest\"'"
+        run: dotnet publish --os linux --arch x64 -c Release -p:ContainerImageTags=${{ env.ESCAPED_TAGS }} -p:PublishProfile=DefaultContainer
+
