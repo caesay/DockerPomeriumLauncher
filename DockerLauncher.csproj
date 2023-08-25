@@ -8,7 +8,7 @@
 
   <PropertyGroup>
     <ContainerRepository>caesay/docker-pomerium-launcher</ContainerRepository>
-    <ContainerImageTag>$(Version);latest</ContainerImageTag>
+    <ContainerImageTags>$(BuildVersion3Components);latest</ContainerImageTags>
     <ContainerGenerateLabels>false</ContainerGenerateLabels>
   </PropertyGroup>
 
