@@ -112,23 +112,12 @@ body {
     color: green;
 }
 
-/*.container-img-inner {
-    border-radius: 20px;
-    width: 100%;
-    height: 100%;
-}*/
+
 
 .container-title {
     margin-right: 10px;
     font-weight: 700
 }
-
-/*.running-status {
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    display: block;
-}*/
 
 /* THIS IS FOR THE LOADING SPINNER */
 :root {

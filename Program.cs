@@ -56,6 +56,7 @@ async Task StaticPage(HttpContext ctx, string jspath, object jsonData = null)
         <link rel="icon" type="image/png" sizes="32x32" href="/launchbox-32.png">
         <link rel="icon" type="image/png" sizes="16x16" href="/launchbox-16.png">
         {{(pageTitle == null ? "" : $"<title>{pageTitle}</title>")}}
+        <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
         <script> window.myData = {{json}}; </script>

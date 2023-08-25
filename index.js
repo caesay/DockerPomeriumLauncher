@@ -114,8 +114,6 @@ class App extends Component {
         const grouped = _.groupBy(containers, c => c.networkName);
         var networks = _.orderBy(_.keys(grouped), c => c);
 
-        console.log(containers);
-
         return html`
 
 <div class='network-group'>
