@@ -1,4 +1,62 @@
-﻿import { html, Component, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
+﻿import { html, Component, render, useCallback, useRef, useState } from 'https://unpkg.com/htm/preact/standalone.module.js'
+
+const useLongPress = (
+    onLongPress,
+    onClick,
+    { shouldPreventDefault = true, delay = 300 } = {}
+) => {
+    const [longPressTriggered, setLongPressTriggered] = useState(false);
+    const timeout = useRef();
+    const target = useRef();
+
+    const start = useCallback(
+        event => {
+            if (shouldPreventDefault && event.target) {
+                event.target.addEventListener("touchend", preventDefault, {
+                    passive: false
+                });
+                target.current = event.target;
+            }
+            timeout.current = setTimeout(() => {
+                onLongPress(event);
+                setLongPressTriggered(true);
+            }, delay);
+        },
+        [onLongPress, delay, shouldPreventDefault]
+    );
+
+    const clear = useCallback(
+        (event, shouldTriggerClick = true) => {
+            timeout.current && clearTimeout(timeout.current);
+            shouldTriggerClick && !longPressTriggered && onClick();
+            setLongPressTriggered(false);
+            if (shouldPreventDefault && target.current) {
+                target.current.removeEventListener("touchend", preventDefault);
+            }
+        },
+        [shouldPreventDefault, onClick, longPressTriggered]
+    );
+
+    return {
+        onMouseDown: e => start(e),
+        onTouchStart: e => start(e),
+        onMouseUp: e => clear(e),
+        onMouseLeave: e => clear(e, false),
+        onTouchEnd: e => clear(e)
+    };
+};
+
+const isTouchEvent = event => {
+    return "touches" in event;
+};
+
+const preventDefault = event => {
+    if (!isTouchEvent(event)) return;
+
+    if (event.touches.length < 2 && event.preventDefault) {
+        event.preventDefault();
+    }
+};
 
 const LoadingWidget = () => html`
 <svg class="pl" viewBox="0 0 128 128" width="128px" height="128px" xmlns="http://www.w3.org/2000/svg">
@@ -29,11 +87,17 @@ const RunningStatus = ({ running }) => {
     return null;
 }
 
-const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, networkName, running }) => {
+const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, networkName, running, onClick }) => {
+
+    const performOnClick = useCallback((e) => {
+        onClick(name, e);
+    }, [name])
+
+    const longPressEvent = useLongPress(performOnClick, () => { }, { delay: 500 });
 
     if (_.isEmpty(navigateUrl)) {
         return html`
-<div key=${id} class='container-item c-hidden'>
+<div key=${id} class='container-item c-hidden' ...${longPressEvent} onContextMenu=${performOnClick}>
     <img class='container-img' src="${iconUrl}" />
     <div>
         <div class="container-title">${name}</div>
@@ -42,7 +106,7 @@ const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, netwo
 </div>`;
     } else {
         return html`
-<a key=${id} href="${navigateUrl}" class='container-item c-launchable ${(running ? "c-on" : "c-off")}' target="_blank">
+<a key=${id} href="${navigateUrl}" class='container-item c-launchable ${(running ? "c-on" : "c-off")}' target="_blank" ...${longPressEvent} onContextMenu=${performOnClick}>
     <img class='container-img' src="${iconUrl}" />
     <div>
         <div class="container-title">${name}</div>
@@ -61,6 +125,7 @@ class App extends Component {
             loading: true,
             containers: [],
             error: null,
+            popupName: null,
         };
     }
 
@@ -97,7 +162,16 @@ class App extends Component {
         }
     }
 
-    render({ }, { containers = [], loading, error }) {
+    handleItemClick = (name, e) => {
+        e.preventDefault();
+        this.setState({ popupName: name });
+    }
+
+    handleItemClose = () => {
+        this.setState({ popupName: null });
+    }
+
+    render({ }, { containers = [], loading, error, popupName }) {
 
         if (error) {
             return html`<div class='error-box'>${error}</div>`;
@@ -112,18 +186,36 @@ class App extends Component {
         }
 
         const grouped = _.groupBy(containers, c => c.networkName);
-        var networks = _.orderBy(_.keys(grouped), c => c);
+        const networks = _.orderBy(_.keys(grouped), c => c);
+
+        let popupItem;
+        if (popupName) {
+            popupItem = _.find(this.state.containers, (c) => c.name == popupName);
+            console.log(popupItem);
+        }
 
         return html`
-
 <div class='network-group'>
     ${_.map(networks, (netName) => html`
         <span class="network-label">${netName}</span>
         <div class='container-grid'>
-            ${_.map(_.orderBy(grouped[netName], i => i.name), (c) => html`<${ContainerItem} ...${c} />`)}
+            ${_.map(_.orderBy(grouped[netName], i => i.name), (c) => html`<${ContainerItem} onClick=${this.handleItemClick} ...${c} />`)}
         </span>
     `)}
 </div>
+${popupName && html`
+<div class="popup-overlay" onClick=${this.handleItemClose} />
+<div class="popup-options">
+    <div class="popup-title">
+        <span>${popupName}</span><i class="fa-solid fa-close close-icon" onClick=${this.handleItemClose}></i>
+    </div>
+    <span>${popupItem.networkName} - ${popupItem.ipAddress}</span>
+    <${RunningStatus} running=${popupItem.running} />
+    ${popupItem.running === true && html`<a class="popup-item" href="/stop/${popupName}">Stop Container</a><a class="popup-item" href="/restart/${popupName}">Restart Container</a>`}
+    ${popupItem.running === false && html`<a class="popup-item" href="/start/${popupName}">Start Container</a>`}
+    ${popupItem.navigateUrl && html`<a class="popup-item" href="${popupItem.navigateUrl}">Navigate To</a>`}
+</div>
+`}
 `;
     }
 }

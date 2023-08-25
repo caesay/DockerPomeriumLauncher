@@ -32,7 +32,7 @@ class App extends Component {
     refresh = async () => {
 
         const { name, navigateUrl, pingCount } = this.state;
-        if (pingCount > 4) {
+        if (pingCount > 3) {
             window.location.href = navigateUrl;
             return;
         }

@@ -122,36 +122,40 @@ app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", async (string
 
 });
 
-app.MapGet("/status", async (ctx) =>
+app.MapGet("/status", async () =>
 {
-    var ca = await GetAllContainers();
-    await ctx.Response.WriteAsJsonAsync(ca);
+    return Results.Json(await GetAllContainers());
 });
 
-app.MapGet("/status/{did}", async (ctx) =>
+app.MapGet("/status/{containerName}", async (string containerName) =>
 {
-    var dockerName = ctx.Request.RouteValues["did"] as string;
-    var container = await GetContainer(dockerName);
-    if (container == null)
-    {
-        ctx.Response.StatusCode = 404;
-        return;
-    }
-    await ctx.Response.WriteAsJsonAsync(container);
+    var container = await GetContainer(containerName, false);
+    if (container == null) return Results.NotFound();
+    return Results.Json(container);
 });
 
-app.MapGet("/ping/{did}", async (ctx) =>
+app.MapGet("/start/{containerName}", async (string containerName) =>
 {
-    var dockerName = ctx.Request.RouteValues["did"] as string;
-    var container = await GetContainer(dockerName, false);
-    if (container == null)
-    {
-        ctx.Response.StatusCode = 404;
-        return;
-    }
+    var container = await GetContainer(containerName, false);
+    if (container == null) return Results.NotFound();
+    await GetDockerClient().Containers.StartContainerAsync(container.Id, new());
+    return Results.Redirect("/");
+});
 
-    var success = await IsHttpSuccess(container.NavigateUrl);
-    ctx.Response.StatusCode = success ? 200 : 500;
+app.MapGet("/stop/{containerName}", async (string containerName) =>
+{
+    var container = await GetContainer(containerName, false);
+    if (container == null) return Results.NotFound();
+    await GetDockerClient().Containers.StopContainerAsync(container.Id, new());
+    return Results.Redirect("/");
+});
+
+app.MapGet("/restart/{containerName}", async (string containerName) =>
+{
+    var container = await GetContainer(containerName, false);
+    if (container == null) return Results.NotFound();
+    await GetDockerClient().Containers.RestartContainerAsync(container.Id, new());
+    return Results.Redirect("/");
 });
 
 app.MapGet("/launch/{did}", async (ctx) =>
@@ -247,14 +251,6 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
     }
 
     return query.OrderBy(c => c.Name).ToArray();
-}
-
-async Task<bool> IsHttpSuccess(string address)
-{
-    using HttpClient http = new HttpClient();
-    http.Timeout = TimeSpan.FromSeconds(2);
-    var resp = await http.GetAsync(address);
-    return resp.IsSuccessStatusCode;
 }
 
 async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
