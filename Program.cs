@@ -166,7 +166,9 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
     var p = deserializer.Deserialize<PomeriumRoot>(File.ReadAllText(pomConfig));
     var routes = p.Policy.ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
 
-    var hidden = hideContainers.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var hidden = String.IsNullOrWhiteSpace(hideContainers)
+        ? new string[0]
+        : hideContainers.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     var query = from c in ca
                 let networks = c.NetworkSettings?.Networks?.ToArray() ?? new KeyValuePair<string, EndpointSettings>[0]
@@ -258,7 +260,7 @@ async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
         return null;
     }
 
-    return MapContainerResponse(ca, launchRoutes).First();
+    return MapContainerResponse(ca, launchRoutes).First(c => c.Name == name);
 }
 
 async Task<ContainerItem[]> GetAllContainers(bool launchRoutes = true)
