@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>11</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="launch.js" />
+    <EmbeddedResource Include="index.css" />
+    <EmbeddedResource Include="index.js" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Docker.DotNet" Version="3.125.15" />
+    <PackageReference Include="YamlDotNet" Version="13.2.0" />
+  </ItemGroup>
+  
+</Project>
