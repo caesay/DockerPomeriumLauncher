@@ -16,12 +16,15 @@
     <EmbeddedResource Include="launch.js" />
     <EmbeddedResource Include="index.css" />
     <EmbeddedResource Include="index.js" />
+    <EmbeddedResource Include="launchbox-16.png" />
+    <EmbeddedResource Include="launchbox-32.png" />
+    <EmbeddedResource Include="launchbox-64.png" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include=".github/**" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.6.133">

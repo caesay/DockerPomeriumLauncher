@@ -52,6 +52,8 @@ async Task StaticPage(HttpContext ctx, string jspath, object jsonData = null)
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/launchbox-32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/launchbox-16.png">
     </head>
     <body>
         <script> window.myData = {{json}}; </script>
@@ -69,39 +71,52 @@ app.MapGet("/", async (ctx) =>
     await StaticPage(ctx, "index.js");
 });
 
-app.MapGet("/{slug:regex(^\\w+(\\.js|\\.css)$)}", async (ctx) =>
+app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", async (string fileName) =>
 {
-    var fileName = ctx.Request.RouteValues["slug"] as string;
-
     try
     {
+        byte[] bytes = null;
 #if DEBUG
         if (Debugger.IsAttached)
         {
             var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", fileName);
-            ctx.Response.ContentType = "text/javascript";
-            await ctx.Response.Body.WriteAsync(File.ReadAllBytes(path));
+            bytes = File.ReadAllBytes(path);
         }
         else
         {
 #endif
             var assembly = Assembly.GetExecutingAssembly();
             var resourceName = "DockerLauncher." + fileName;
-            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
-            using (StreamReader reader = new StreamReader(stream))
+            using (var stream = assembly.GetManifestResourceStream(resourceName))
+            using (var memoryStream = new MemoryStream())
             {
-                string result = reader.ReadToEnd();
-                ctx.Response.ContentType = "text/javascript";
-                await ctx.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(result));
+                stream.CopyTo(memoryStream);
+                bytes = memoryStream.ToArray();
             }
 #if DEBUG
         }
 #endif
+
+        if (fileName.EndsWith(".js"))
+        {
+            return Results.File(bytes, "text/javascript");
+        }
+        else if (fileName.EndsWith(".css"))
+        {
+            return Results.File(bytes, "text/css");
+        }
+        else if (fileName.EndsWith(".png"))
+        {
+            return Results.File(bytes, "image/png", fileName);
+        }
     }
     catch (Exception)
     {
-        ctx.Response.StatusCode = 404;
+        // log?   
     }
+
+    return Results.NotFound();
+
 });
 
 app.MapGet("/status", async (ctx) =>
