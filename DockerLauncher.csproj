@@ -10,6 +10,7 @@
     <ContainerRepository>caesay/docker-pomerium-launcher</ContainerRepository>
     <ContainerImageTags>$(BuildVersion3Components);latest</ContainerImageTags>
     <ContainerGenerateLabels>false</ContainerGenerateLabels>
+    <ContainerRegistry>registry.hub.docker.com</ContainerRegistry>
   </PropertyGroup>
 
   <ItemGroup>
