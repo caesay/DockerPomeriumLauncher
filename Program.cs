@@ -16,6 +16,7 @@ var pomConfig = Environment.GetEnvironmentVariable("DL_POMERIUM");
 var hideContainers = Environment.GetEnvironmentVariable("DL_HIDE");
 var customContainers = Environment.GetEnvironmentVariable("DL_EXTRA");
 var pageTitle = Environment.GetEnvironmentVariable("DL_TITLE");
+var editConfigUrl = Environment.GetEnvironmentVariable("DL_EDIT_URL_TEMPLATE");
 
 var deserializer = new DeserializerBuilder()
     .IgnoreUnmatchedProperties()
@@ -208,7 +209,43 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
                     IpAddress = n.Value?.IPAddress,
                     NavigateUrl = routes.ContainsKey(name) ? (launchRoutes ? $"/launch/{name}" : routes[name]) : null,
                     Running = c.State == "running",
+                    Mounts = c.Mounts?.Select(z => z.Source)?.ToArray() ?? new string[0],
+                    Ports = c.Ports.ToArray(),
+                    ExtraActions = new(),
                 };
+
+    var computed = query.ToArray();
+
+    if (editConfigUrl != null)
+    {
+        if (!editConfigUrl.Contains(":") || !editConfigUrl.Contains("{path}"))
+            throw new Exception("Invalid format for DL_EDIT_URL_TEMPLATE");
+        var spl = editConfigUrl.Split(':');
+        if (spl.Length < 2)
+            throw new Exception("Invalid format for DL_EDIT_URL_TEMPLATE");
+        var pathPrefix = spl[0];
+        var substitution = String.Join(":", spl.Skip(1));
+
+        foreach (var c in computed)
+        {
+            var m = (c.Mounts?.FirstOrDefault(m => m.StartsWith("/mnt/user/appdata/" + c.Name))
+                    ?? c.Mounts.FirstOrDefault(m => m.StartsWith("/mnt/user/appdata/") && m.Contains(c.Name)));
+
+            if (m != null && m.StartsWith(pathPrefix))
+            {
+                m = m.Substring(pathPrefix.Length);
+
+                var mParts = m.Split("/");
+                var mAppIndex = Array.IndexOf(mParts, "appdata");
+
+                m = String.Join("/", mParts.Take(mAppIndex + 2));
+
+
+                var url = substitution.Replace("{path}", m);
+                c.ExtraActions["Edit Config"] = url;
+            }
+        }
+    }
 
     ContainerItem[] customs = new ContainerItem[0];
 
@@ -225,7 +262,7 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
 
     if (customs.Any())
     {
-        var dict = query.ToDictionary(q => q.Name, q => q);
+        var dict = computed.ToDictionary(q => q.Name, q => q);
         foreach (var c in customs)
         {
             if (dict.ContainsKey(c.Name))
@@ -250,7 +287,7 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
         return dict.Values.OrderBy(c => c.Name).ToArray();
     }
 
-    return query.OrderBy(c => c.Name).ToArray();
+    return computed.OrderBy(c => c.Name).ToArray();
 }
 
 async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
@@ -297,6 +334,9 @@ record ContainerItem
     public string NavigateUrl { get; set; }
     public string IpAddress { get; set; }
     public string NetworkName { get; set; }
+    public string[] Mounts { get; set; }
+    public Port[] Ports { get; set; }
+    public Dictionary<string, string> ExtraActions { get; set; }
 }
 
 class PomeriumRoute
