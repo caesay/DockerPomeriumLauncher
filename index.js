@@ -209,11 +209,15 @@ ${popupName && html`
     <div class="popup-title">
         <span>${popupName}</span><i class="fa-solid fa-close close-icon" onClick=${this.handleItemClose}></i>
     </div>
-    <span>${popupItem.networkName} - ${popupItem.ipAddress}</span>
+    <span>${popupItem.networkName} - ${popupItem.ipAddress}</span> <br/>
     <${RunningStatus} running=${popupItem.running} />
-    ${popupItem.running === true && html`<a class="popup-item" href="/stop/${popupName}">Stop Container</a><a class="popup-item" href="/restart/${popupName}">Restart Container</a>`}
-    ${popupItem.running === false && html`<a class="popup-item" href="/start/${popupName}">Start Container</a>`}
-    ${popupItem.navigateUrl && html`<a class="popup-item" href="${popupItem.navigateUrl}">Navigate To</a>`}
+    ${_.map(popupItem.ports, p => html`<span>${p.privatePort}::${p.publicPort}, </span>`)} 
+    
+    ${popupItem.running === true && html`<a class="popup-item" href="/stop/${popupName}"><i class="fa-solid fa-stop fa-fixed-width"></i> Stop Container</a>
+                                         <a class="popup-item" href="/restart/${popupName}"><i class="fa-solid fa-rotate-right fa-fixed-width"></i> Restart Container</a>`}
+    ${popupItem.running === false && html`<a class="popup-item" href="/start/${popupName}"><i class="fa-solid fa-play fa-fixed-width"></i> Start Container</a>`}
+    ${popupItem.navigateUrl && html`<a class="popup-item" href="${popupItem.navigateUrl}"><i class="fa-solid fa-link fa-fixed-width"></i> Navigate To</a>`}
+    ${_.map(popupItem.extraActions, (e, k) => (html`<a class="popup-item" target="_blank" href="${e}"><i class="fa-solid fa-fixed-width">${k.split(' ')[0]}</i> ${_.join(_.tail(k.split(' ')), " ")}</a>`))}
 </div>
 `}
 `;

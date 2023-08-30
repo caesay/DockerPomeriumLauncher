@@ -71,7 +71,7 @@ body {
     padding: 10px;
     text-decoration: none;
     cursor: pointer;
-    margin: 10px auto;
+    margin: 12px auto;
     color: rgba(255, 255, 255, 0.8);
     border-radius: 10px;
     transition: all linear 200ms;
@@ -171,6 +171,12 @@ body {
 .container-title {
     margin-right: 10px;
     font-weight: 700
+}
+
+.fa-fixed-width {
+    width: 36px;
+    text-align: center;
+    display: block;
 }
 
 /* THIS IS FOR THE LOADING SPINNER */

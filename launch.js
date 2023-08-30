@@ -39,31 +39,6 @@ class App extends Component {
 
         this.setState({ pingCount: pingCount + 1 });
         setTimeout(this.refresh, 1000);
-
-
-        //const { name, navigateUrl, pingCount } = this.state;
-        //const response = await fetch("/ping/" + name);
-
-        //if (response.status == 404) {
-        //    this.setState({ error: "Container '" + name + "' could not be found (404)." });
-        //}
-        //else if (response.status == 500 && pingCount >= 10) {
-        //    this.setState({ error: "Starting '" + name + "' has timed out." });
-        //}
-        //else if (response.status == 200) {
-        //    window.location.href = navigateUrl;
-        //}
-        //else {
-        //    this.setState({ pingCount: pingCount + 1 });
-        //    setTimeout(this.refresh, 1000);
-        //}
-
-
-        //const containers = await response.json();
-        //this.setState({
-        //    loading: false,
-        //    containers,
-        //});
     }
 
     render({ }, { pingCount, name, error }) {
