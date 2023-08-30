@@ -16,13 +16,13 @@ var pomConfig = Environment.GetEnvironmentVariable("DL_POMERIUM");
 var hideContainers = Environment.GetEnvironmentVariable("DL_HIDE");
 var customContainers = Environment.GetEnvironmentVariable("DL_EXTRA");
 var pageTitle = Environment.GetEnvironmentVariable("DL_TITLE");
-var editConfigUrl = Environment.GetEnvironmentVariable("DL_EDIT_URL_TEMPLATE");
+var editConfigUrl = Environment.GetEnvironmentVariable("DL_EDIT_CONFIG_URL");
+var editContainerUrl = Environment.GetEnvironmentVariable("DL_CONFIGURE_CONTAINER_URL");
 
 var deserializer = new DeserializerBuilder()
     .IgnoreUnmatchedProperties()
     .WithNamingConvention(UnderscoredNamingConvention.Instance)
     .Build();
-
 
 DockerClient dockerClient = null;
 DockerClient GetDockerClient()
@@ -210,7 +210,7 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
                     NavigateUrl = routes.ContainsKey(name) ? (launchRoutes ? $"/launch/{name}" : routes[name]) : null,
                     Running = c.State == "running",
                     Mounts = c.Mounts?.Select(z => z.Source)?.ToArray() ?? new string[0],
-                    Ports = c.Ports.ToArray(),
+                    Ports = c.Ports.DistinctBy(p => p.PrivatePort).DistinctBy(p => p.PublicPort).OrderBy(p => p.PrivatePort).ToArray(),
                     ExtraActions = new(),
                 };
 
@@ -242,8 +242,19 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
 
 
                 var url = substitution.Replace("{path}", m);
-                c.ExtraActions["Edit Config"] = url;
+                c.ExtraActions["\uf013 Edit AppData"] = url;
             }
+        }
+    }
+
+    if (editContainerUrl != null)
+    {
+        if (!editContainerUrl.Contains("{name}"))
+            throw new Exception("Invalid format for DL_CONFIGURE_CONTAINER_URL");
+
+        foreach (var c in computed)
+        {
+            c.ExtraActions["\uf1b2 Docker Template"] = editContainerUrl.Replace("{name}", c.Name);
         }
     }
 
