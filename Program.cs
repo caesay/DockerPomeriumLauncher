@@ -246,7 +246,7 @@ async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<Cont
                     IpAddress = n.Value?.IPAddress,
                     NavigateUrl = routes.ContainsKey(name) ? (launchRoutes ? $"/launch/{name}" : routes[name]) : null,
                     Running = c.State == "running",
-                    Mounts = c.Mounts?.Select(z => z.Source)?.ToArray() ?? new string[0],
+                    Mounts = c.Mounts?.Select(z => z.Source).Where(z => !String.IsNullOrWhiteSpace(z)).ToArray() ?? new string[0],
                     Ports = c.Ports.DistinctBy(p => p.PrivatePort).DistinctBy(p => p.PublicPort).OrderBy(p => p.PrivatePort).ToArray(),
                     ExtraActions = new(),
                 };
