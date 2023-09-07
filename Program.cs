@@ -24,7 +24,10 @@ var deserializer = new DeserializerBuilder()
     .WithNamingConvention(UnderscoredNamingConvention.Instance)
     .Build();
 
+Dictionary<string, string> _networkCache = new();
+DateTime _networkLastClearUtc = DateTime.UtcNow;
 DockerClient dockerClient = null;
+
 DockerClient GetDockerClient()
 {
     dockerClient ??= new DockerClientConfiguration(new Uri(dockerSock)).CreateClient();
@@ -184,7 +187,39 @@ app.MapGet("/launch/{did}", async (ctx) =>
 
 app.Run();
 
-ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launchRoutes = true)
+async Task<string> GetDockerSubnet(DockerClient client, string netName)
+{
+    // clear cache every 10 minutes
+    var delta = DateTime.UtcNow - _networkLastClearUtc;
+    if (delta > TimeSpan.FromMinutes(10))
+        _networkLastClearUtc = new();
+
+    if (_networkCache.TryGetValue(netName, out var nv))
+        return nv;
+
+    var networks = await client.Networks.ListNetworksAsync(new NetworksListParameters());
+
+    var search = networks.FirstOrDefault(n => n.Name == netName);
+    if (search == null)
+    {
+        _networkCache[netName] = null;
+        return null;
+    }
+
+    var insp = await client.Networks.InspectNetworkAsync(search.ID);
+
+    var subnet = insp?.IPAM?.Config?.FirstOrDefault();
+    if (subnet?.Subnet == null)
+    {
+        _networkCache[netName] = null;
+        return null;
+    }
+
+    _networkCache[netName] = subnet.Subnet;
+    return subnet.Subnet;
+}
+
+async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<ContainerListResponse> ca, bool launchRoutes = true)
 {
     var p = deserializer.Deserialize<PomeriumRoot>(File.ReadAllText(pomConfig));
     var routes = p.Policy.ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
@@ -295,7 +330,18 @@ ContainerItem[] MapContainerResponse(IList<ContainerListResponse> ca, bool launc
             }
         }
 
-        return dict.Values.OrderBy(c => c.Name).ToArray();
+        computed = dict.Values.ToArray();
+    }
+
+    foreach (var c in computed)
+    {
+        var subnet = await GetDockerSubnet(client, c.NetworkName);
+
+        if (subnet != null)
+        {
+            //c.NetworkName = $"{c.NetworkName} ({subnet})";
+            c.NetworkName = $"{subnet} - {c.NetworkName}";
+        }
     }
 
     return computed.OrderBy(c => c.Name).ToArray();
@@ -316,23 +362,25 @@ async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
         }
     };
 
-    var ca = await GetDockerClient().Containers.ListContainersAsync(req);
+    var client = GetDockerClient();
+    var ca = await client.Containers.ListContainersAsync(req);
     if (!ca.Any())
     {
         return null;
     }
 
-    return MapContainerResponse(ca, launchRoutes).First(c => c.Name == name);
+    return (await MapContainerResponse(client, ca, launchRoutes)).First(c => c.Name == name);
 }
 
 async Task<ContainerItem[]> GetAllContainers(bool launchRoutes = true)
 {
-    var ca = await GetDockerClient().Containers.ListContainersAsync(new ContainersListParameters { All = true, Limit = 1000 });
+    var client = GetDockerClient();
+    var ca = await client.Containers.ListContainersAsync(new ContainersListParameters { All = true, Limit = 1000 });
     if (!ca.Any())
     {
         return new ContainerItem[0];
     }
-    return MapContainerResponse(ca, launchRoutes);
+    return await MapContainerResponse(client, ca, launchRoutes);
 }
 
 record ContainerItem
