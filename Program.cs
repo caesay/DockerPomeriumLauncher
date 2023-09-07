@@ -126,46 +126,55 @@ app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", async (string
 
 });
 
-app.MapGet("/status", async () =>
+string GetRootHost(HttpContext ctx)
 {
-    return Results.Json(await GetAllContainers());
+    if (Regex.IsMatch(ctx.Request.Host.Value, @"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"))
+        return ctx.Request.Host.Value;
+
+    var root = Regex.Replace(ctx.Request.Host.Value, "^.+?\\.(.+\\..+$)", "$1");
+    return root;
+}
+
+app.MapGet("/status", async (HttpContext ctx) =>
+{
+    return Results.Json(await GetAllContainers(GetRootHost(ctx)));
 });
 
-app.MapGet("/status/{containerName}", async (string containerName) =>
+app.MapGet("/status/{containerName}", async (HttpContext ctx, string containerName) =>
 {
-    var container = await GetContainer(containerName, false);
+    var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
     return Results.Json(container);
 });
 
-app.MapGet("/start/{containerName}", async (string containerName) =>
+app.MapGet("/start/{containerName}", async (HttpContext ctx, string containerName) =>
 {
-    var container = await GetContainer(containerName, false);
+    var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
     await GetDockerClient().Containers.StartContainerAsync(container.Id, new());
     return Results.Redirect("/");
 });
 
-app.MapGet("/stop/{containerName}", async (string containerName) =>
+app.MapGet("/stop/{containerName}", async (HttpContext ctx, string containerName) =>
 {
-    var container = await GetContainer(containerName, false);
+    var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
     await GetDockerClient().Containers.StopContainerAsync(container.Id, new());
     return Results.Redirect("/");
 });
 
-app.MapGet("/restart/{containerName}", async (string containerName) =>
+app.MapGet("/restart/{containerName}", async (HttpContext ctx, string containerName) =>
 {
-    var container = await GetContainer(containerName, false);
+    var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
     await GetDockerClient().Containers.RestartContainerAsync(container.Id, new());
     return Results.Redirect("/");
 });
 
-app.MapGet("/launch/{did}", async (ctx) =>
+app.MapGet("/launch/{did}", async (HttpContext ctx) =>
 {
     var dockerName = ctx.Request.RouteValues["did"] as string;
-    var container = await GetContainer(dockerName, false);
+    var container = await GetContainer(GetRootHost(ctx), dockerName, false);
     if (container == null)
     {
         ctx.Response.StatusCode = 404;
@@ -219,7 +228,7 @@ async Task<string> GetDockerSubnet(DockerClient client, string netName)
     return subnet.Subnet;
 }
 
-async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<ContainerListResponse> ca, bool launchRoutes = true)
+async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient client, IList<ContainerListResponse> ca, bool launchRoutes = true)
 {
     var p = deserializer.Deserialize<PomeriumRoot>(File.ReadAllText(pomConfig));
     var routes = p.Policy
@@ -335,20 +344,36 @@ async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<Cont
         computed = dict.Values.ToArray();
     }
 
-    foreach (var c in computed.Where(n => n.NetworkName != null))
+    foreach (var c in computed)
     {
-        var subnet = await GetDockerSubnet(client, c.NetworkName);
-        if (subnet != null)
+        if (c.NetworkName != null)
         {
-            //c.NetworkName = $"{c.NetworkName} ({subnet})";
-            c.NetworkName = $"{subnet} - {c.NetworkName}";
+            var subnet = await GetDockerSubnet(client, c.NetworkName);
+            if (subnet != null)
+            {
+                //c.NetworkName = $"{c.NetworkName} ({subnet})";
+                c.NetworkName = $"{subnet} - {c.NetworkName}";
+            }
+        }
+
+        if (c.NavigateUrl != null)
+        {
+            if (c.NavigateUrl.EndsWith(".*"))
+            {
+                c.NavigateUrl = Regex.Replace(c.NavigateUrl, @"\.\*$", "." + rootHost);
+            }
+
+            if (c.NavigateUrl.Contains("*"))
+            {
+                c.NavigateUrl = null;
+            }
         }
     }
 
     return computed.OrderBy(c => c.Name).ToArray();
 }
 
-async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
+async Task<ContainerItem> GetContainer(string rootHost, string name, bool launchRoutes = true)
 {
     var req = new ContainersListParameters
     {
@@ -370,10 +395,10 @@ async Task<ContainerItem> GetContainer(string name, bool launchRoutes = true)
         return null;
     }
 
-    return (await MapContainerResponse(client, ca, launchRoutes)).First(c => c.Name == name);
+    return (await MapContainerResponse(rootHost, client, ca, launchRoutes)).First(c => c.Name == name);
 }
 
-async Task<ContainerItem[]> GetAllContainers(bool launchRoutes = true)
+async Task<ContainerItem[]> GetAllContainers(string rootHost, bool launchRoutes = true)
 {
     var client = GetDockerClient();
     var ca = await client.Containers.ListContainersAsync(new ContainersListParameters { All = true, Limit = 1000 });
@@ -381,7 +406,7 @@ async Task<ContainerItem[]> GetAllContainers(bool launchRoutes = true)
     {
         return new ContainerItem[0];
     }
-    return await MapContainerResponse(client, ca, launchRoutes);
+    return await MapContainerResponse(rootHost, client, ca, launchRoutes);
 }
 
 record ContainerItem
