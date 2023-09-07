@@ -222,7 +222,9 @@ async Task<string> GetDockerSubnet(DockerClient client, string netName)
 async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<ContainerListResponse> ca, bool launchRoutes = true)
 {
     var p = deserializer.Deserialize<PomeriumRoot>(File.ReadAllText(pomConfig));
-    var routes = p.Policy.ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
+    var routes = p.Policy
+        .Where(z => z.To != null)
+        .ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
 
     var hidden = String.IsNullOrWhiteSpace(hideContainers)
         ? new string[0]
