@@ -333,10 +333,9 @@ async Task<ContainerItem[]> MapContainerResponse(DockerClient client, IList<Cont
         computed = dict.Values.ToArray();
     }
 
-    foreach (var c in computed)
+    foreach (var c in computed.Where(n => n.NetworkName != null))
     {
         var subnet = await GetDockerSubnet(client, c.NetworkName);
-
         if (subnet != null)
         {
             //c.NetworkName = $"{c.NetworkName} ({subnet})";
