@@ -18,6 +18,7 @@ var customContainers = Environment.GetEnvironmentVariable("DL_EXTRA");
 var pageTitle = Environment.GetEnvironmentVariable("DL_TITLE");
 var editConfigUrl = Environment.GetEnvironmentVariable("DL_EDIT_CONFIG_URL");
 var editContainerUrl = Environment.GetEnvironmentVariable("DL_CONFIGURE_CONTAINER_URL");
+var launchNewWindow = Environment.GetEnvironmentVariable("DL_LAUNCH_NEWWINDOW");
 
 var deserializer = new DeserializerBuilder()
     .IgnoreUnmatchedProperties()
@@ -126,7 +127,7 @@ string GetRootHost(HttpContext ctx)
     return root;
 }
 
-app.MapGet("/", () => Page(PAGE_INDEX));
+app.MapGet("/", () => Page(PAGE_INDEX, new { launchNewWindow = !String.IsNullOrEmpty(launchNewWindow) }));
 
 app.MapGet("/status", async (HttpContext ctx) =>
 {

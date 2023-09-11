@@ -87,7 +87,7 @@ const RunningStatus = ({ running }) => {
     return null;
 }
 
-const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, networkName, running, onClick }) => {
+const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, networkName, running, onClick, inNewWindow }) => {
 
     const performOnClick = useCallback((e) => {
         onClick(name, e);
@@ -106,7 +106,7 @@ const ContainerItem = ({ iconUrl, id, name, navigateUrl, state, ipAddress, netwo
 </div>`;
     } else {
         return html`
-<a key=${id} href="${navigateUrl}" class='container-item c-launchable ${(running ? "c-on" : "c-off")}' target="_blank" ...${longPressEvent} onContextMenu=${performOnClick}>
+<a key=${id} href="${navigateUrl}" class='container-item c-launchable ${(running ? "c-on" : "c-off")}' target="${(inNewWindow ? "_target" : "_self")}" ...${longPressEvent} onContextMenu=${performOnClick}>
     <img class='container-img' src="${iconUrl}" />
     <div>
         <div class="container-title">${name}</div>
@@ -126,6 +126,7 @@ class App extends Component {
             containers: [],
             error: null,
             popupName: null,
+            inNewWindow: window.myData.launchNewWindow,
         };
     }
 
@@ -171,7 +172,7 @@ class App extends Component {
         this.setState({ popupName: null });
     }
 
-    render({ }, { containers = [], loading, error, popupName }) {
+    render({ }, { containers = [], loading, error, popupName, inNewWindow }) {
 
         if (error) {
             return html`<div class='error-box'>${error}</div>`;
@@ -199,7 +200,7 @@ class App extends Component {
     ${_.map(networks, (netName) => html`
         <span class="network-label">${netName}</span>
         <div class='container-grid'>
-            ${_.map(_.orderBy(grouped[netName], i => i.name), (c) => html`<${ContainerItem} onClick=${this.handleItemClick} ...${c} />`)}
+            ${_.map(_.orderBy(grouped[netName], i => i.name), (c) => html`<${ContainerItem} inNewWindow=${inNewWindow} onClick=${this.handleItemClick} ...${c} />`)}
         </span>
     `)}
 </div>
