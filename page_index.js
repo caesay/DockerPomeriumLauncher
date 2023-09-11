@@ -131,6 +131,13 @@ class App extends Component {
     }
 
     componentDidMount() {
+        // map Esc key to dialog close
+        document.onkeydown = (function (evt) {
+            evt = evt || window.event;
+            if (evt.keyCode == 27) {
+                this.handleItemClose();
+            }
+        }).bind(this);
         this.refresh();
     }
 
