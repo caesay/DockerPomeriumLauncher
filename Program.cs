@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Docker.DotNet;
@@ -40,7 +39,7 @@ if (!String.IsNullOrEmpty(port))
     app.Urls.Add("http://*:" + port);
 }
 
-async Task StaticPage(HttpContext ctx, string jspath, object jsonData = null)
+IResult Page(string jspath, object jsonData = null)
 {
     string json = "null";
 
@@ -70,16 +69,15 @@ async Task StaticPage(HttpContext ctx, string jspath, object jsonData = null)
     </html>
     """;
 
-    ctx.Response.ContentType = "text/html";
-    await ctx.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(resp));
+    return Results.Text(resp, "text/html");
 }
 
-app.MapGet("/", async (ctx) =>
+app.MapGet("/", () =>
 {
-    await StaticPage(ctx, "index.js");
+    return Page("index.js");
 });
 
-app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", async (string fileName) =>
+app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", (string fileName) =>
 {
     try
     {
@@ -176,22 +174,36 @@ app.MapGet("/launch/{did}", async (HttpContext ctx) =>
 {
     var dockerName = ctx.Request.RouteValues["did"] as string;
     var container = await GetContainer(GetRootHost(ctx), dockerName, false);
+
     if (container == null)
     {
-        ctx.Response.StatusCode = 404;
+        return Results.Text("Container not found", statusCode: 404);
     }
-    else if (String.IsNullOrWhiteSpace(container.NavigateUrl))
+
+    if (String.IsNullOrWhiteSpace(container.NavigateUrl))
     {
-        ctx.Response.StatusCode = 412;
+        return Results.Text("Container has no navigation target", statusCode: 412);
     }
-    else if (container.State == "running")
+
+    switch (container.State)
     {
-        ctx.Response.Redirect(container.NavigateUrl);
-    }
-    else if (container.State == "exited")
-    {
-        await GetDockerClient().Containers.StartContainerAsync(container.Id, new());
-        await StaticPage(ctx, "launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+        case "created":
+        case "exited":
+            await GetDockerClient().Containers.StartContainerAsync(container.Id, new());
+            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+
+        case "paused":
+            await GetDockerClient().Containers.UnpauseContainerAsync(container.Id, new());
+            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+
+        case "restarting":
+            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+
+        case "running":
+            return Results.Redirect(container.NavigateUrl);
+
+        default:
+            return Results.Text($"Unhandled container state: '{container.State}'", statusCode: 500);
     }
 });
 
