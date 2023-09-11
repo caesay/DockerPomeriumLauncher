@@ -131,16 +131,16 @@ body {
 }
 
 .center {
-    text-align:center;
+    text-align: center;
 }
 
 .c-launchable {
     color: white;
 }
 
-.c-launchable:hover {
-    background-color: rgba(250, 250, 250, 0.2);
-}
+    .c-launchable:hover {
+        background-color: rgba(250, 250, 250, 0.2);
+    }
 
 .c-on {
     color: white !important;

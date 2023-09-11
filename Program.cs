@@ -28,6 +28,10 @@ Dictionary<string, string> _networkCache = new();
 DateTime _networkLastClearUtc = DateTime.UtcNow;
 DockerClient dockerClient = null;
 
+const string PAGE_INDEX = "page_index.js";
+const string PAGE_LAUNCH = "page_launch.js";
+const string PAGE_AJAX = "page_ajax.js";
+
 DockerClient GetDockerClient()
 {
     dockerClient ??= new DockerClientConfiguration(new Uri(dockerSock)).CreateClient();
@@ -51,7 +55,7 @@ IResult Page(string jspath, object jsonData = null)
     var resp = $$"""
     <html>
     <head>
-        <link rel="stylesheet" type="text/css" href="/index.css">
+        <link rel="stylesheet" type="text/css" href="/style.css">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js" integrity="sha512-WFN04846sdKMIP5LKNphMaWzU7YpMyCU245etK3g/2ARYbPK9Ub18eG+ljU96qKRCWh+quCY7yefSmlkQw1ANQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -72,53 +76,41 @@ IResult Page(string jspath, object jsonData = null)
     return Results.Text(resp, "text/html");
 }
 
-app.MapGet("/", () =>
-{
-    return Page("index.js");
-});
-
 app.MapGet("/{fileName:regex(^[\\d\\w-]+(\\.js|\\.css|\\.png)$)}", (string fileName) =>
 {
-    try
+    byte[] bytes = null;
+#if DEBUG
+    if (Debugger.IsAttached)
     {
-        byte[] bytes = null;
-#if DEBUG
-        if (Debugger.IsAttached)
-        {
-            var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", fileName);
-            bytes = File.ReadAllBytes(path);
-        }
-        else
-        {
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", fileName);
+        bytes = File.ReadAllBytes(path);
+    }
+    else
+    {
 #endif
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "DockerLauncher." + fileName;
-            using (var stream = assembly.GetManifestResourceStream(resourceName))
-            using (var memoryStream = new MemoryStream())
-            {
-                stream.CopyTo(memoryStream);
-                bytes = memoryStream.ToArray();
-            }
-#if DEBUG
+        var assembly = Assembly.GetExecutingAssembly();
+        var resourceName = "DockerLauncher." + fileName;
+        using (var stream = assembly.GetManifestResourceStream(resourceName))
+        using (var memoryStream = new MemoryStream())
+        {
+            stream.CopyTo(memoryStream);
+            bytes = memoryStream.ToArray();
         }
+#if DEBUG
+    }
 #endif
 
-        if (fileName.EndsWith(".js"))
-        {
-            return Results.File(bytes, "text/javascript");
-        }
-        else if (fileName.EndsWith(".css"))
-        {
-            return Results.File(bytes, "text/css");
-        }
-        else if (fileName.EndsWith(".png"))
-        {
-            return Results.File(bytes, "image/png", fileName);
-        }
-    }
-    catch (Exception)
+    if (fileName.EndsWith(".js"))
     {
-        // log?   
+        return Results.File(bytes, "text/javascript");
+    }
+    else if (fileName.EndsWith(".css"))
+    {
+        return Results.File(bytes, "text/css");
+    }
+    else if (fileName.EndsWith(".png"))
+    {
+        return Results.File(bytes, "image/png", fileName);
     }
 
     return Results.NotFound();
@@ -134,6 +126,8 @@ string GetRootHost(HttpContext ctx)
     return root;
 }
 
+app.MapGet("/", () => Page(PAGE_INDEX));
+
 app.MapGet("/status", async (HttpContext ctx) =>
 {
     return Results.Json(await GetAllContainers(GetRootHost(ctx)));
@@ -146,7 +140,9 @@ app.MapGet("/status/{containerName}", async (HttpContext ctx, string containerNa
     return Results.Json(container);
 });
 
-app.MapGet("/start/{containerName}", async (HttpContext ctx, string containerName) =>
+app.MapGet("/start/{containerName}", (string containerName) => Page(PAGE_AJAX, new { message = $"Starting {containerName}...", postUrl = $"/start/{containerName}" }));
+
+app.MapPost("/start/{containerName}", async (HttpContext ctx, string containerName) =>
 {
     var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
@@ -154,7 +150,9 @@ app.MapGet("/start/{containerName}", async (HttpContext ctx, string containerNam
     return Results.Redirect("/");
 });
 
-app.MapGet("/stop/{containerName}", async (HttpContext ctx, string containerName) =>
+app.MapGet("/stop/{containerName}", (string containerName) => Page(PAGE_AJAX, new { message = $"Stopping {containerName}...", postUrl = $"/stop/{containerName}" }));
+
+app.MapPost("/stop/{containerName}", async (HttpContext ctx, string containerName) =>
 {
     var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
@@ -162,7 +160,9 @@ app.MapGet("/stop/{containerName}", async (HttpContext ctx, string containerName
     return Results.Redirect("/");
 });
 
-app.MapGet("/restart/{containerName}", async (HttpContext ctx, string containerName) =>
+app.MapGet("/restart/{containerName}", (string containerName) => Page(PAGE_AJAX, new { message = $"Restarting {containerName}...", postUrl = $"/restart/{containerName}" }));
+
+app.MapPost("/restart/{containerName}", async (HttpContext ctx, string containerName) =>
 {
     var container = await GetContainer(GetRootHost(ctx), containerName, false);
     if (container == null) return Results.NotFound();
@@ -190,14 +190,14 @@ app.MapGet("/launch/{did}", async (HttpContext ctx) =>
         case "created":
         case "exited":
             await GetDockerClient().Containers.StartContainerAsync(container.Id, new());
-            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+            return Page(PAGE_LAUNCH, new { containerName = container.Name, navigateUrl = container.NavigateUrl });
 
         case "paused":
             await GetDockerClient().Containers.UnpauseContainerAsync(container.Id, new());
-            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+            return Page(PAGE_LAUNCH, new { containerName = container.Name, navigateUrl = container.NavigateUrl });
 
         case "restarting":
-            return Page("launch.js", new { containerName = container.Name, navigateUrl = container.NavigateUrl });
+            return Page(PAGE_LAUNCH, new { containerName = container.Name, navigateUrl = container.NavigateUrl });
 
         case "running":
             return Results.Redirect(container.NavigateUrl);
