@@ -1,4 +1,4 @@
-﻿import { html, Component, render, useCallback, useRef, useState } from 'https://unpkg.com/htm/preact/standalone.module.js'
+import { html, Component, render, useCallback, useRef, useState } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
 const useLongPress = (
     onLongPress,
@@ -165,11 +165,16 @@ class App extends Component {
 
     handleItemClick = (name, e) => {
         e.preventDefault();
+        const scrollbarWidth = window.innerWidth - document.documentElement.offsetWidth;
+        window.document.body.style.overflow = "hidden";
+        window.document.body.style.paddingRight = scrollbarWidth;
         this.setState({ popupName: name });
     }
 
     handleItemClose = () => {
         this.setState({ popupName: null });
+        window.document.body.style.overflow = "auto";
+        window.document.body.style.paddingRight = 0;
     }
 
     render({ }, { containers = [], loading, error, popupName, inNewWindow }) {
