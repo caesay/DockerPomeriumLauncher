@@ -33,7 +33,7 @@ class App extends Component {
             const response = await fetch(this.state.postUrl, { method: "POST" });
             if (response.ok) {
                 // success
-                window.location.href = "/";
+                window.location.href = "/" + window.location.hash;
             } else {
                 let msg = await response.text();
                 console.log(msg);

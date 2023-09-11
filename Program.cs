@@ -50,7 +50,11 @@ IResult Page(string jspath, object jsonData = null)
 
     if (jsonData != null)
     {
-        json = JsonSerializer.Serialize(jsonData);
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+        json = JsonSerializer.Serialize(jsonData, options);
     }
 
     var resp = $$"""
@@ -135,7 +139,20 @@ string GetRootHost(HttpContext ctx)
     return root;
 }
 
-app.MapGet("/", () => Page(PAGE_INDEX, new { launchNewWindow = !String.IsNullOrEmpty(launchNewWindow) }));
+app.MapGet("/", async (HttpContext ctx) =>
+{
+    var containersTask = GetAllContainers(GetRootHost(ctx));
+    await Task.WhenAny(Task.Delay(300), containersTask);
+
+    if (containersTask.IsCompletedSuccessfully)
+    {
+        return Page(PAGE_INDEX, new { launchNewWindow = !String.IsNullOrEmpty(launchNewWindow), preload = containersTask.Result });
+    }
+    else
+    {
+        return Page(PAGE_INDEX, new { launchNewWindow = !String.IsNullOrEmpty(launchNewWindow) });
+    }
+});
 
 app.MapGet("/status", async (HttpContext ctx) =>
 {
@@ -334,7 +351,6 @@ async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient c
         {
             PropertyNameCaseInsensitive = true,
             AllowTrailingCommas = true,
-
         };
         customs = JsonSerializer.Deserialize<ContainerItem[]>(customContainers.Trim(), options);
     }

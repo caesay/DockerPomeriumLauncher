@@ -1,4 +1,4 @@
-import { html, Component, render, useCallback, useRef, useState } from 'https://unpkg.com/htm/preact/standalone.module.js'
+﻿import { html, Component, render, useCallback, useRef, useState } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
 const useLongPress = (
     onLongPress,
@@ -121,9 +121,17 @@ class App extends Component {
 
     constructor() {
         super();
+
+        let containers = [];
+        let loading = true;
+        if (window.myData.preload && _.isArray(window.myData.preload)) {
+            containers = window.myData.preload;
+            loading = _.isEmpty(containers);
+        }
+
         this.state = {
-            loading: true,
-            containers: [],
+            loading: loading,
+            containers: containers,
             error: null,
             popupName: null,
             inNewWindow: window.myData.launchNewWindow,
@@ -138,7 +146,25 @@ class App extends Component {
                 this.handleItemClose();
             }
         }).bind(this);
-        this.refresh();
+
+        if (_.isEmpty(this.state.containers)) {
+            this.refresh();
+        } else {
+            console.log("data pre-loaded. delaying first status request...");
+
+            const stripped = window.location.hash.replace(/^#/, "");
+            var targetScroll = parseInt(stripped);
+            if (_.isFinite(targetScroll)) {
+                console.log("scrolling to " + targetScroll.toString());
+                setTimeout(() => {
+                    document.body.scrollTop = targetScroll;
+                }, 1);
+            }
+
+            setTimeout(this.refresh, 500);
+        }
+
+        window.location.hash = "";
     }
 
     refresh = async () => {
@@ -173,15 +199,15 @@ class App extends Component {
     handleItemClick = (name, e) => {
         e.preventDefault();
         const scrollbarWidth = window.innerWidth - document.documentElement.offsetWidth;
-        window.document.body.style.overflow = "hidden";
-        window.document.body.style.paddingRight = scrollbarWidth;
+        document.body.style.overflow = "hidden";
+        document.body.style.paddingRight = scrollbarWidth;
         this.setState({ popupName: name });
     }
 
     handleItemClose = () => {
         this.setState({ popupName: null });
-        window.document.body.style.overflow = "auto";
-        window.document.body.style.paddingRight = 0;
+        document.body.style.overflow = "auto";
+        document.body.style.paddingRight = 0;
     }
 
     render({ }, { containers = [], loading, error, popupName, inNewWindow }) {
@@ -207,6 +233,8 @@ class App extends Component {
             console.log(popupItem);
         }
 
+        const scrollPos = document.body.scrollTop;
+
         return html`
 <div class='network-group'>
     ${_.map(networks, (netName) => html`
@@ -226,9 +254,9 @@ ${popupName && html`
     <${RunningStatus} running=${popupItem.running} />
     ${_.map(popupItem.ports, p => html`<span>${p.privatePort}::${p.publicPort}, </span>`)} 
     
-    ${popupItem.running === true && html`<a class="popup-item" href="/stop/${popupName}"><i class="fa-solid fa-stop fa-fixed-width"></i> Stop Container</a>
-                                         <a class="popup-item" href="/restart/${popupName}"><i class="fa-solid fa-rotate-right fa-fixed-width"></i> Restart Container</a>`}
-    ${popupItem.running === false && html`<a class="popup-item" href="/start/${popupName}"><i class="fa-solid fa-play fa-fixed-width"></i> Start Container</a>`}
+    ${popupItem.running === true && html`<a class="popup-item" href="/stop/${popupName}#${scrollPos}"><i class="fa-solid fa-stop fa-fixed-width"></i> Stop Container</a>
+                                         <a class="popup-item" href="/restart/${popupName}#${scrollPos}"><i class="fa-solid fa-rotate-right fa-fixed-width"></i> Restart Container</a>`}
+    ${popupItem.running === false && html`<a class="popup-item" href="/start/${popupName}#${scrollPos}"><i class="fa-solid fa-play fa-fixed-width"></i> Start Container</a>`}
     ${popupItem.navigateUrl && html`<a class="popup-item" href="${popupItem.navigateUrl}"><i class="fa-solid fa-link fa-fixed-width"></i> Navigate To</a>`}
     ${_.map(popupItem.extraActions, (e, k) => (html`<a class="popup-item" target="_blank" href="${e}"><i class="fa-solid fa-fixed-width">${k.split(' ')[0]}</i> ${_.join(_.tail(k.split(' ')), " ")}</a>`))}
 </div>
