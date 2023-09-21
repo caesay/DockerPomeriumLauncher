@@ -270,9 +270,9 @@ async Task<string> GetDockerSubnet(DockerClient client, string netName)
 async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient client, IList<ContainerListResponse> ca, bool launchRoutes = true)
 {
     var p = deserializer.Deserialize<PomeriumRoot>(File.ReadAllText(pomConfig));
-    var routes = p.Policy
-        .Where(z => z.To != null)
-        .ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
+    // var routes = p.Policy
+    //     .Where(z => z.To != null)
+    //     .ToDictionary(z => new Uri(z.To).Host, z => z.From, StringComparer.OrdinalIgnoreCase);
 
     var hidden = String.IsNullOrWhiteSpace(hideContainers)
         ? new string[0]
@@ -283,6 +283,7 @@ async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient c
                 where networks.All(z => !hidden.Contains(z.Key))
                 let n = networks.FirstOrDefault()
                 let name = c.Names.First().TrimStart('/')
+                let croute = p.Policy.Where(z => z.To != null).FirstOrDefault(pr => new Uri(pr.To).Host == name)?.From
                 where !hidden.Contains(name)
                 select new ContainerItem
                 {
@@ -292,7 +293,7 @@ async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient c
                     IconUrl = c.Labels.Where(l => l.Key.Equals("net.unraid.docker.icon")).Select(l => l.Value).FirstOrDefault(),
                     NetworkName = n.Key,
                     IpAddress = n.Value?.IPAddress,
-                    NavigateUrl = routes.ContainsKey(name) ? (launchRoutes ? $"/launch/{name}" : routes[name]) : null,
+                    NavigateUrl = croute != null ? (launchRoutes ? $"/launch/{name}" : croute) : null,
                     Running = c.State == "running",
                     Mounts = c.Mounts?.Select(z => z.Source).Where(z => !String.IsNullOrWhiteSpace(z)).ToArray() ?? new string[0],
                     Ports = c.Ports.DistinctBy(p => p.PrivatePort).DistinctBy(p => p.PublicPort).OrderBy(p => p.PrivatePort).ToArray(),
