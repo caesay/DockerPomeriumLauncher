@@ -281,7 +281,8 @@ async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient c
     var query = from c in ca
                 let networks = c.NetworkSettings?.Networks?.ToArray() ?? new KeyValuePair<string, EndpointSettings>[0]
                 where networks.All(z => !hidden.Contains(z.Key))
-                let n = networks.FirstOrDefault()
+                let extraNetwork = c.Labels.Where(l => l.Key.Equals("dashboard.network")).Select(l => l.Value).FirstOrDefault()
+                let n = (extraNetwork != null ? networks.Where(n => n.Key == extraNetwork).FirstOrDefault() : networks.FirstOrDefault())
                 let name = c.Names.First().TrimStart('/')
                 let croute = p.Policy.Where(z => z.To != null).FirstOrDefault(pr => new Uri(pr.To).Host == name)?.From
                 let extraRoute = c.Labels.Where(l => l.Key.Equals("dashboard.url")).Select(l => l.Value).FirstOrDefault()
