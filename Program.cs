@@ -284,16 +284,17 @@ async Task<ContainerItem[]> MapContainerResponse(string rootHost, DockerClient c
                 let n = networks.FirstOrDefault()
                 let name = c.Names.First().TrimStart('/')
                 let croute = p.Policy.Where(z => z.To != null).FirstOrDefault(pr => new Uri(pr.To).Host == name)?.From
+                let extraRoute = c.Labels.Where(l => l.Key.Equals("dashboard.url")).Select(l => l.Value).FirstOrDefault()
                 where !hidden.Contains(name)
                 select new ContainerItem
                 {
                     Name = name,
                     State = c.State,
                     Id = c.ID,
-                    IconUrl = c.Labels.Where(l => l.Key.Equals("net.unraid.docker.icon")).Select(l => l.Value).FirstOrDefault(),
+                    IconUrl = c.Labels.Where(l => l.Key.Equals("dashboard.icon")).Select(l => l.Value).FirstOrDefault(),
                     NetworkName = n.Key,
                     IpAddress = n.Value?.IPAddress,
-                    NavigateUrl = croute != null ? (launchRoutes ? $"/launch/{name}" : croute) : null,
+                    NavigateUrl = extraRoute ?? (croute != null ? (launchRoutes ? $"/launch/{name}" : croute) : null),
                     Running = c.State == "running",
                     Mounts = c.Mounts?.Select(z => z.Source).Where(z => !String.IsNullOrWhiteSpace(z)).ToArray() ?? new string[0],
                     Ports = c.Ports.DistinctBy(p => p.PrivatePort).DistinctBy(p => p.PublicPort).OrderBy(p => p.PrivatePort).ToArray(),
